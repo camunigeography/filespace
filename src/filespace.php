@@ -4,7 +4,7 @@
 
 # (c) Martin Lucas-Smith
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.11 - 12/May/04
+# Version 2.12 - 8/Oct/04
 
 
 # Define a class generating a filespace
@@ -13,66 +13,142 @@ class filespace
 	# Constructor
 	function filespace ($settings)
 	{
-		# Ensure the pureContent framework is loaded and clean server globals
+		# Load required libraries
 		require_once ('pureContent.php');
-		
-		# Load the general application support
 		require_once ('application.php');
-		
-		# Load the form generator library
 		require_once ('ultimateForm.php');
-		
-		# Load the directories support library
 		require_once ('directories.php');
 		
+		# Assign the settings and run the main program if there are no errors
+		if ($errors = $this->assignSettings ($settings)) {return;}
+		
 		# Load the navigation trail library
-		require_once ('sitetech/prepended.html');
+		require_once ($this->settings['prependedFile']);
 		
 		# Add a welcome message on the front page
-		if ($_SERVER['REQUEST_URI'] == '/') {echo '<p><strong>Welcome to the ' . ORGANISATION_TITLE . ' filespace.</strong> <em>Please bookmark this page!</em><br />Files/folders can be added using the links above.</p>';}
+		if ($_SERVER['REQUEST_URI'] == '/') {
+			echo '<p><strong>Welcome to the ' . $this->settings['organisationTitle'] . ' filespace.</strong> <em>Please bookmark this page!</em><br />Files/folders can be added using the links above.</p>';
+			echo $this->settings['frontPageText'];
+		}
 		
 		# Take action based on the query string
 		switch ($_SERVER['QUERY_STRING']) {
 			
 			# If the query string is set to 'add', load the upload form library and create a form
 			case 'add':
-				$this->uploadForm ($settings['logFile'], $settings['bannedDirectories'], $settings['temporaryLocation'], $settings['maximumUploadFiles'], $settings['emailSubject']);
+				$this->uploadForm ();
 				break;
 				
 			# If the query string is set to 'directory', load the directory creation form library and create a form
 			case 'directory':
-				$this->createDirectory ($settings['logFile'], $settings['bannedDirectories'], $settings['goToCreatedDirectoryAutomatically']);
+				$this->createDirectory ($this->settings['bannedDirectories'], $this->settings['goToCreatedDirectoryAutomatically']);
 				break;
 				
 			# If no action is specified, by default show the directory listing
 			default:
-				echo directories::listing ($settings['iconsDirectory'], $settings['iconsServerPath'], $settings['hiddenFiles'], $settings['caseSensitiveMatching'], $settings['trailingSlashVisible'], $settings['fileExtensionsVisible'], $settings['wildcardMatchesZeroCharacters']);
+				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], $this->settings['hiddenFiles'], $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters']);
+		}
+		
+		# Show photo thumbnails if required
+		if ($this->settings['photoDirectory']) {
+			if (eregi ('^' . $this->settings['photoDirectory'], $_SERVER['REQUEST_URI'])) {
+				require_once ('image.php');
+				image::gallery (substr (urldecode ($_SERVER['REQUEST_URI']), 1), '/images/generator', $width = 180, false);
+			}
 		}
 		
 		# Finish the page
-		require_once ('sitetech/appended.html');
+		require_once ($this->settings['appendedFile']);
+	}
+	
+	
+	# Assign the settings
+	function assignSettings ($settings)
+	{
+		# Start an error array
+		$errors = array ();
+		
+		# Assign the defaults
+		$defaults = array (
+			'iconsDirectory' =>	'/images/fileicons/',	// Icons directory
+			'iconsServerPath' =>	$_SERVER['DOCUMENT_ROOT'] . '/images/fileicons/',	// Icons path on the server
+			'trailingSlashVisible' =>	false,	// Whether folders should have a trailing slash visible
+			'fileExtensionsVisible' =>	true,	// Whether file extensions should be visible
+			'wildcardMatchesZeroCharacters' =>	true,	// Whether a wildcard match should match zero characters (0) or not (1 or more)
+			'caseSensitiveMatching' =>	false,	// Whether file matching should ignore case-sensitivity
+			'goToCreatedDirectoryAutomatically' =>	false,	// Whether creation of a new directory should result in a link to it or take the user directly there; requires output_buffering switched on in php.ini (or equivalent)
+			'uploadWidgets' =>	4,	// Number of upload boxes to appear on the page
+			'enableVersionControl' =>	true,	// Whether to enable version control for replacing existing files
+			'emailAddressRequired' =>	true,	// Whether an e-mail address is required
+			'temporaryLocation' =>	'/temporary/',	// Temporary location for unspecified file saving, make sure this exists and is writable by the webserver 'user'!
+			'bannedDirectories' =>	array ('/temporary/'),	// Case insensitive directories where users cannot make changes, does NOT include subdirectories
+			'emailSubject' =>	'Addition to the filespace',	// E-mail subject line
+			'logFile' =>	'./filespacelog.csv',	// The CSV log file (actual disk location) where changes are logged, ensure this exists and is writable by the webserver 'user'
+			'hiddenFiles' =>	array ('.ht*', '.title.txt', '/favicon.ico', '/robots.txt', '/temporary/', '/changelog.csv',),	// Hidden files, starting with / indicates an absolute path and * at the start/end (but not middle) is a wildcard match, trailing slashes optional
+			'organisationTitle' =>	NULL,	// Title of the organsation
+			'administratorContactPage' =>	NULL,	// The site's administrator contact page
+			'administratorEmail' =>	NULL,	// Webmaster's e-mail
+			'administratorDescription' =>	'Filespace monitor',	// Administrator's description
+			'ownerEmail' =>	NULL,	// Owner's e-mail
+			'ownerDescription' =>	'Filespace owner',	// Owner's description
+			'ownerDescriptionBrief' =>	'the filespace owner',	// Owner's description in brief
+			'groupEmail' =>	NULL,	// Group's e-mail
+			'groupDescription' =>	'Committee',	// Group's description
+			'groupDescriptionBrief' =>	'the committee',	// Group's description in brief
+			'prependedFile' =>	NULL,	// Start of house style
+			'appendedFile' =>	NULL,	// End of house style
+			'developmentEnvironment' =>	false,	// Whether to run in development mode
+			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
+		);
+		
+		# Apply the supplied argument or, if none, the default
+		foreach ($defaults as $key => $default) {
+			
+			# Throw an error if a value is null
+			if ((is_null ($default)) && (!isSet ($settings[$key]))) {
+				$errors["settings-{$key}"] = "The setting $key is a required setting without an internal default but has not been assigned.";
+			} else {
+				
+				# Assign the setting
+				$settings[$key] = (isSet ($settings[$key]) ? $settings[$key] : $default);
+			}
+		}
+		
+		# Assign the settings
+		$this->settings = $settings;
+		
+		# Show any setup errors
+		if ($errors) {
+			$html  = "\n" . '<p>This program cannot currently run because of the following problem' . ((count ($errors) > 1) ? 's' : '') . ':</p>';
+			$html .= application::htmlUl ($errors);
+			$html .= "\n" . "<p>These should be corrected by the server's administrator.</p>";
+			echo $html;
+		}
+		
+		# Return the settings
+		return ($errors);
 	}
 	
 	
 	# Function to create an upload form
-	function uploadForm ($logfile, $bannedDirectories, $temporaryLocation, $maximumUploadFiles, $emailSubject)
+	function uploadForm ()
 	{
 		# Get the location
 		$location = $this->getLocation ();
 		
 		# Check for banned directories
-		foreach ($bannedDirectories as $bannedDirectory) {
+		foreach ($this->settings['bannedDirectories'] as $bannedDirectory) {
 			if (strtolower ($location) == strtolower ($bannedDirectory)) {
-				$location = $temporaryLocation;
+				$location = $this->settings['temporaryLocation'];
 				$locationDisallowedMessage = ' (The site administrator has not allowed changes in the location you selected.)';
 			}
 		}
 		
 		# Make sure the directory exists
-		if (!is_dir ($_SERVER['DOCUMENT_ROOT'] . $location)) {$location = $temporaryLocation;}
+		if (!is_dir ($_SERVER['DOCUMENT_ROOT'] . $location)) {$location = $this->settings['temporaryLocation'];}
 		
 		# If the location is the temporary location (e.g. has been reset), give a message to that effect
-		if ($location == $temporaryLocation) {$locationMessage = "Temporary (the webmaster will move the file and inform you)";} else {$locationMessage = $location;}
+		if ($location == $this->settings['temporaryLocation']) {$locationMessage = "Temporary (the webmaster will move the file and inform you)";} else {$locationMessage = $location;}
 		
 		# Create the form
 		$form = new form (array (
@@ -81,17 +157,19 @@ class filespace
 			'showFormCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
+			'developmentEnvironment' => $this->settings['developmentEnvironment'],
 		));
+		
 		$form->heading ('p', 'Use this short form to copy file(s) across.');
-		$form->heading ('p', 'Location: <strong>' . (($location != $temporaryLocation) ? '<a href="' . $location . '" target="_blank" title="(Opens in a new window)">' . $location . '</a>' : 'Temporary area') . '</strong>' . (isSet ($locationDisallowedMessage) ? $locationDisallowedMessage : ''));
+		$form->heading ('p', 'Location: <strong>' . (($location != $this->settings['temporaryLocation']) ? '<a href="' . $location . '" target="_blank" title="(Opens in a new window)">' . $location . '</a>' : 'Temporary area') . '</strong>' . (isSet ($locationDisallowedMessage) ? $locationDisallowedMessage : ''));
 		$form->upload (array (
 			'elementName'			=> 'file',
-			'title'					=> 'File(s) to copy over from your computer:',
+			'title'					=> 'File(s) to copy over from your computer<br />(max. ' . ini_get ('upload_max_filesize') . 'B per submission</strong> of any number of files):',
 			'uploadDirectory'		=> $_SERVER['DOCUMENT_ROOT'] . $location,
-			'subfields'				=> 4,
+			'subfields'				=> $this->settings['uploadWidgets'],
 			'presentationFormat'	=> array ('processing' => 'rawcomponents'),
 			'minimumRequired'		=> 1,
-			'enableVersionControl'	=> true,
+			'enableVersionControl'	=> $this->settings['enableVersionControl'],
 		));
 		$form->input (array (
 			'elementName'			=> 'name',
@@ -101,12 +179,12 @@ class filespace
 		$form->email (array (
 			'elementName'			=> 'email',
 			'title'					=> 'Your e-mail address:',
-			'required'				=> true,
+			'required'				=> $this->settings['emailAddressRequired'],
 		));
 		$form->checkboxes (array (
 			'elementName'			=> 'informGroup',
 			'valuesArray'			=> array ('Inform group'),
-			'title'					=> 'Tick to have an e-mail sent to ' . FILESPACE_GROUP_DESCRIPTION_BRIEF . ' informing them of the new file(s)',
+			'title'					=> 'Tick to have an e-mail sent to ' . $this->settings['groupDescription'] . ' informing them of the new file(s)',
 		));
 		$form->textarea (array (
 			'elementName'			=> 'notes',
@@ -119,7 +197,7 @@ class filespace
 			$files = $result['file'];
 			$name = $result['name'];
 			$email = $result['email'];
-			$informGroup = $result['informGroup'];
+			$informGroup = $result['informGroup']['Inform group'];
 			$notes = $result['notes'];
 			
 			# Start variables to hold HTML and e-mail messages and a logfile entry
@@ -163,34 +241,35 @@ class filespace
 				echo $html;
 				
 				# Log the change
-				application::writeDataToFile ($logString, $logfile);
+				application::writeDataToFile ($logString, $this->settings['logFile']);
 				
 				# Build up an e-mail message
-				$emailMessage = "\n\nThe following was uploaded to the filespace by $name:\n" . $emailMessage;
-				if ($location != '') {$emailMessage .= "\n\n\nLocation:\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($location . $filename));}
-				if ($notes != '') {$emailMessage .= "\n\n\nExplanatory notes:\n\n$notes";}
+				$message  = "\n\nThe following was uploaded to the filespace by $name:";
+				if ($notes != '') {$message .= "\n\n\nExplanatory notes:\n\n$notes";}
+				$message  .= "\n" . $emailMessage;
+				if ($location != '') {$message .= "\n\n\nLocation:\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', $location);}
 				
 				# Start the e-mail headers
-				$emailHeaders = 'From: ' . FILESPACE_WEBMASTER_DESCRIPTION . ' <' . FILESPACE_WEBMASTER_EMAIL . ">\n";
-				$emailHeaders .= "Reply-To: $name <$email>\n";
+				$emailHeaders = 'From: "' . $this->settings['administratorDescription'] . '" <' . $this->settings['administratorEmail'] . ">\n";
+				if ($email) {$emailHeaders .= "Reply-To: \"$name\" <$email>\n";}
 				
 				# Determine the e-mail recipient - only send to the group address if informGroup is requested AND the location is not the temporary location, but ensure the filespace administrator is informed either way
 				if ($informGroup) {
-					$emailRecipient = FILESPACE_GROUP_DESCRIPTION . ' <' . FILESPACE_GROUP_EMAIL . '>';
-					$emailHeaders .= 'Cc: ' . FILESPACE_OWNER_DESCRIPTION . ' <' . FILESPACE_OWNER_EMAIL . '>' . "\n";
+					$emailRecipient = '"' . $this->settings['groupDescription'] . '" <' . $this->settings['groupEmail'] . '>';
+					$emailHeaders .= 'Cc: "' . $this->settings['ownerDescription'] . '" <' . $this->settings['ownerEmail'] . '>' . "\n";
 				} else {
-					$emailRecipient = FILESPACE_OWNER_DESCRIPTION . ' <' . FILESPACE_OWNER_EMAIL . '>';
+					$emailRecipient = '"' . $this->settings['ownerDescription'] . '" <' . $this->settings['ownerEmail'] . '>';
 				}
 				
 				# If the temporary location is specified, note this in the e-mail to the administrator, specifying whether to reply to the group or the individual
-				if ($location == '') {$emailMessage .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? FILESPACE_GROUP_DESCRIPTION_BRIEF . 'and ' : '') . "$email where it is.";}
+				if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "$email where it is.";}
 				
 				# Send the e-mail
-				if (!mail ($emailRecipient, $emailSubject, wordwrap ($emailMessage), $emailHeaders)) {
-					echo '<p><strong>Although the file transfer was OK, there was some kind of problem with sending out a confirmation e-mail.</strong> Please contact the webmaster to inform them of the addition, at ' . FILESPACE_WEBMASTER_EMAIL . '.</p>';
+				if (!mail ($emailRecipient, $this->settings['emailSubject'], wordwrap ($message), $emailHeaders)) {
+					echo '<p><strong>Although the file transfer was OK, there was some kind of problem with sending out a confirmation e-mail.</strong> Please contact the webmaster to inform them of the addition, at ' . $this->settings['administratorEmail'] . '.</p>';
 				} else {
 					# State that the e-mail has been sent and that it has (or hasn't) been logged
-					echo '<p>An e-mail confirming this has been sent to ' . ($informGroup ? FILESPACE_GROUP_DESCRIPTION_BRIEF : FILESPACE_OWNER_DESCRIPTION_BRIEF) . ', and the change has been logged.</p>';
+					echo '<p>An e-mail confirming this has been sent to ' . ($informGroup ? $this->settings['groupDescriptionBrief'] : $this->settings['ownerDescriptionBrief']) . ', and the change has been logged.</p>';
 					if ($location == '') {echo '<p>The webmaster will move the upload to the correct place and send an e-mail accordingly.</p>';}
 				}
 			}
@@ -199,7 +278,7 @@ class filespace
 	
 	
 	# Function to create a new directory
-	function createDirectory ($logfile, $bannedDirectories = array (), $goToCreatedDirectoryAutomatically = false)
+	function createDirectory ($bannedDirectories = array (), $goToCreatedDirectoryAutomatically = false)
 	{
 		# Get the location
 		$location = $this->getLocation ();
@@ -221,67 +300,67 @@ class filespace
 			}
 		}
 		
-		# If the location is acceptable, continue
-		if ($locationAcceptable) {
+		# End if the location is not acceptable
+		if (!$locationAcceptable) {return;}
+		
+		# Create the form
+		$form = new form (array (
+			'displayDescriptions'	=> false,
+			'displayRestrictions'	=> false,
+			'showFormCompleteText'	=> false,
+			'displayColons'			=> false,
+			'submitButtonText'		=> 'Create new directory',
+			'developmentEnvironment' => $this->settings['developmentEnvironment'],
+		));
+		$form->heading ('p', 'Use this short form to create a new folder.');
+		$form->input (array (
+			'elementName'			=> 'directoryName',
+			'title'					=> "<strong>New directory name: <a href=\"$location\" target=\"_blank\" title=\"(Opens in a new window)\">$location</a></strong>",
+			'required'				=> true,
+			#!# Doesn't work....
+			'regexp'				=> '[^\\/:<>?|*"\']+',
+		));
+		$form->input (array (
+			'elementName'			=> 'name',
+			'title'					=> 'Your name:',
+			'required'				=> true,
+		));
+		$form->email (array (
+			'elementName'			=> 'email',
+			'title'					=> 'Your e-mail address:',
+			'required'				=> $this->settings['emailAddressRequired'],
+		));
+		
+		# Obtain the data from a posted form
+		if ($result = $form->processForm ()) {
+			$directoryName = $result['directoryName'];
+			$name = $result['name'];
+			$email = $result['email'];
 			
-			# Create the form
-			$form = new form (array (
-				'displayDescriptions'	=> false,
-				'displayRestrictions'	=> false,
-				'showFormCompleteText'	=> false,
-				'displayColons'			=> false,
-				'submitButtonText'		=> 'Create new directory',
-			));
-			$form->heading ('p', 'Use this short form to create a new folder.');
-			$form->input (array (
-				'elementName'			=> 'directoryName',
-				'title'					=> "<strong>New directory name: <a href=\"$location\" target=\"_blank\" title=\"(Opens in a new window)\">$location</a></strong>",
-				'required'				=> true,
-				#!# Doesn't work....
-				'regexp'				=> '[^\\/:<>?|*"\']+',
-			));
-			$form->input (array (
-				'elementName'			=> 'name',
-				'title'					=> 'Your name:',
-				'required'				=> true,
-			));
-			$form->email (array (
-				'elementName'			=> 'email',
-				'title'					=> 'Your e-mail address:',
-				'required'				=> true,
-			));
-			
-			# Obtain the data from a posted form
-			if ($result = $form->processForm ()) {
-				$directoryName = $result['directoryName'];
-				$name = $result['name'];
-				$email = $result['email'];
+			# Check that it doesn't currently exist
+			#!# Not a very elegant solution... need to find better way to integrate this with the form
+			if (file_exists ($_SERVER['DOCUMENT_ROOT'] . $location . $directoryName)) {
+				echo 'There already exists a file/directory by that name. Please go back and try again if necessary.';
+			} else {
 				
-				# Check that it doesn't currently exist
-				#!# Not a very elegant solution... need to find better way to integrate this with the form
-				if (file_exists ($_SERVER['DOCUMENT_ROOT'] . $location . $directoryName)) {
-					echo 'There already exists a file/directory by that name. Please go back and try again if necessary.';
+				# Attempt to create the directory
+				umask (0);
+				if (!mkdir (($_SERVER['DOCUMENT_ROOT'] . $location . $directoryName), 0770)) {
+					echo '<p>Apologies, but there was a problem creating the directory.</p>';
 				} else {
 					
-					# Attempt to create the directory
-					umask (0);
-					if (!mkdir (($_SERVER['DOCUMENT_ROOT'] . $location . $directoryName), 0770)) {
-						echo '<p>Apologies, but there was a problem creating the directory.</p>';
+					# Log the directory creation
+					$logString = $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,created directory," . $location . ',' . $directoryName . ",,\n";
+					application::writeDataToFile ($logString, $this->settings['logFile']);
+					
+					# Take the user directly to the new directory if required
+					if ($goToCreatedDirectoryAutomatically) {
+						# Send a header - will only work if output_buffering is switched on
+						header ('Location: http://' . $_SERVER['SERVER_NAME'] . $location . $directoryName);
 					} else {
 						
-						# Log the directory creation
-						$logString = $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,created directory," . $location . ',' . $directoryName . ",,\n";
-						application::writeDataToFile ($logString, $logfile);
-						
-						# Take the user directly to the new directory if required
-						if ($goToCreatedDirectoryAutomatically) {
-							#!# Surely this won't work because of the prepended file...?
-							header ('Location: http://' . $_SERVER['SERVER_NAME'] . $location . $directoryName);
-						} else {
-							
-							# Otherwise provide a link to the new location
-							echo '<p>The directory was successfully created - <a href="' . $location . $directoryName . '/">go there now</a>.</p>';
-						}
+						# Otherwise provide a link to the new location
+						echo '<p>The directory was successfully created - <a href="' . $location . $directoryName . '/">go there now</a>.</p>';
 					}
 				}
 			}
@@ -294,7 +373,7 @@ class filespace
 	{
 		# Determine the previous page variable, in the order HTTP_REFERER then a POST request, and remove the domain name prefix from the previous page location
 		#!# This whole section needs serious refactoring
-		$location = (eregi (('^http://' . $_SERVER['SERVER_NAME']), $_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '');
+		$location = (eregi (('^http://' . $_SERVER['SERVER_NAME']), $_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/');
 		$location = ereg_replace (('http://' . $_SERVER['SERVER_NAME']) , '', urldecode ($location));
 		
 		# Replace double-slashes in the location path
