@@ -4,7 +4,7 @@
 
 # (c) Martin Lucas-Smith
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.12 - 8/Oct/04
+# Version 2.13 - 5/4/05
 
 
 # Define a class generating a filespace
@@ -20,7 +20,7 @@ class filespace
 		require_once ('directories.php');
 		
 		# Assign the settings and run the main program if there are no errors
-		if ($errors = $this->assignSettings ($settings)) {return;}
+		if (!$this->setup ($settings)) {return false;}
 		
 		# Load the navigation trail library
 		require_once ($this->settings['prependedFile']);
@@ -63,7 +63,7 @@ class filespace
 	
 	
 	# Assign the settings
-	function assignSettings ($settings)
+	function setup ($settings)
 	{
 		# Start an error array
 		$errors = array ();
@@ -110,12 +110,9 @@ class filespace
 			} else {
 				
 				# Assign the setting
-				$settings[$key] = (isSet ($settings[$key]) ? $settings[$key] : $default);
+				$this->settings[$key] = (isSet ($settings[$key]) ? $settings[$key] : $default);
 			}
 		}
-		
-		# Assign the settings
-		$this->settings = $settings;
 		
 		# Show any setup errors
 		if ($errors) {
@@ -123,10 +120,11 @@ class filespace
 			$html .= application::htmlUl ($errors);
 			$html .= "\n" . "<p>These should be corrected by the server's administrator.</p>";
 			echo $html;
+			return false;
 		}
 		
-		# Return the settings
-		return ($errors);
+		# Return success
+		return true;
 	}
 	
 	
