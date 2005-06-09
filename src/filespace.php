@@ -1,10 +1,8 @@
 <?php
 
-# This file loads the filespace, based on the PHPrepend Framework
-
-# (c) Martin Lucas-Smith
+# (c) Martin Lucas-Smith, University of Cambridge
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.13 - 5/4/05
+# Version 2.14 - 9/6/05
 
 
 # Define a class generating a filespace
@@ -53,7 +51,7 @@ class filespace
 		if ($this->settings['photoDirectory']) {
 			if (eregi ('^' . $this->settings['photoDirectory'], $_SERVER['REQUEST_URI'])) {
 				require_once ('image.php');
-				image::gallery (substr (urldecode ($_SERVER['REQUEST_URI']), 1), '/images/generator', $width = 180, false);
+				echo image::gallery (true, false, $size = 180);
 			}
 		}
 		
@@ -97,6 +95,7 @@ class filespace
 			'groupDescriptionBrief' =>	'the committee',	// Group's description in brief
 			'prependedFile' =>	NULL,	// Start of house style
 			'appendedFile' =>	NULL,	// End of house style
+			'frontPageText' =>	'',	// Optional introductory text on the front page
 			'developmentEnvironment' =>	false,	// Whether to run in development mode
 			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
 		);
@@ -152,7 +151,7 @@ class filespace
 		$form = new form (array (
 			'displayDescriptions'	=> false,
 			'displayRestrictions'	=> false,
-			'showFormCompleteText'	=> false,
+			'displayFormCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
@@ -161,31 +160,31 @@ class filespace
 		$form->heading ('p', 'Use this short form to copy file(s) across.');
 		$form->heading ('p', 'Location: <strong>' . (($location != $this->settings['temporaryLocation']) ? '<a href="' . $location . '" target="_blank" title="(Opens in a new window)">' . $location . '</a>' : 'Temporary area') . '</strong>' . (isSet ($locationDisallowedMessage) ? $locationDisallowedMessage : ''));
 		$form->upload (array (
-			'elementName'			=> 'file',
+			'name'			=> 'file',
 			'title'					=> 'File(s) to copy over from your computer<br />(max. ' . ini_get ('upload_max_filesize') . 'B per submission</strong> of any number of files):',
 			'uploadDirectory'		=> $_SERVER['DOCUMENT_ROOT'] . $location,
 			'subfields'				=> $this->settings['uploadWidgets'],
 			'presentationFormat'	=> array ('processing' => 'rawcomponents'),
-			'minimumRequired'		=> 1,
+			'required'		=> 1,
 			'enableVersionControl'	=> $this->settings['enableVersionControl'],
 		));
 		$form->input (array (
-			'elementName'			=> 'name',
+			'name'			=> 'name',
 			'title'					=> 'Your name:',
 			'required'				=> true,
 		));
 		$form->email (array (
-			'elementName'			=> 'email',
+			'name'			=> 'email',
 			'title'					=> 'Your e-mail address:',
 			'required'				=> $this->settings['emailAddressRequired'],
 		));
 		$form->checkboxes (array (
-			'elementName'			=> 'informGroup',
-			'valuesArray'			=> array ('Inform group'),
+			'name'			=> 'informGroup',
+			'values'			=> array ('Inform group'),
 			'title'					=> 'Tick to have an e-mail sent to ' . $this->settings['groupDescription'] . ' informing them of the new file(s)',
 		));
 		$form->textarea (array (
-			'elementName'			=> 'notes',
+			'name'			=> 'notes',
 			'title'					=> 'Explanatory notes (optional):',
 			'required'				=> false,
 		));
@@ -305,26 +304,26 @@ class filespace
 		$form = new form (array (
 			'displayDescriptions'	=> false,
 			'displayRestrictions'	=> false,
-			'showFormCompleteText'	=> false,
+			'displayFormCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Create new directory',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
 		));
 		$form->heading ('p', 'Use this short form to create a new folder.');
 		$form->input (array (
-			'elementName'			=> 'directoryName',
+			'name'			=> 'directoryName',
 			'title'					=> "<strong>New directory name: <a href=\"$location\" target=\"_blank\" title=\"(Opens in a new window)\">$location</a></strong>",
 			'required'				=> true,
 			#!# Doesn't work....
 			'regexp'				=> '[^\\/:<>?|*"\']+',
 		));
 		$form->input (array (
-			'elementName'			=> 'name',
+			'name'			=> 'name',
 			'title'					=> 'Your name:',
 			'required'				=> true,
 		));
 		$form->email (array (
-			'elementName'			=> 'email',
+			'name'			=> 'email',
 			'title'					=> 'Your e-mail address:',
 			'required'				=> $this->settings['emailAddressRequired'],
 		));
