@@ -2,7 +2,7 @@
 
 # (c) Martin Lucas-Smith, University of Cambridge
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.14 - 9/6/05
+# Version 2.15 - 5/9/05
 
 
 # Define a class generating a filespace
@@ -44,7 +44,7 @@ class filespace
 				
 			# If no action is specified, by default show the directory listing
 			default:
-				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], $this->settings['hiddenFiles'], $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters']);
+				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], ($this->settings['photoModeOnly'] ? array_merge ($this->settings['hiddenFiles'], array ('*.jpg', '*.gif', '*.png')) : $this->settings['hiddenFiles']), $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters'], $this->settings['showOnly']);
 		}
 		
 		# Show photo thumbnails if required
@@ -95,9 +95,11 @@ class filespace
 			'groupDescriptionBrief' =>	'the committee',	// Group's description in brief
 			'prependedFile' =>	NULL,	// Start of house style
 			'appendedFile' =>	NULL,	// End of house style
-			'frontPageText' =>	'',	// Optional introductory text on the front page
+			'frontPageText' =>	'',	// Optional text on the front page
 			'developmentEnvironment' =>	false,	// Whether to run in development mode
 			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
+			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
+			'showOnly' => array (),	// Only these directories should be shown
 		);
 		
 		# Apply the supplied argument or, if none, the default
@@ -151,7 +153,7 @@ class filespace
 		$form = new form (array (
 			'displayDescriptions'	=> false,
 			'displayRestrictions'	=> false,
-			'displayFormCompleteText'	=> false,
+			'formCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
@@ -162,9 +164,9 @@ class filespace
 		$form->upload (array (
 			'name'			=> 'file',
 			'title'					=> 'File(s) to copy over from your computer<br />(max. ' . ini_get ('upload_max_filesize') . 'B per submission</strong> of any number of files):',
-			'uploadDirectory'		=> $_SERVER['DOCUMENT_ROOT'] . $location,
+			'directory'		=> $_SERVER['DOCUMENT_ROOT'] . $location,
 			'subfields'				=> $this->settings['uploadWidgets'],
-			'presentationFormat'	=> array ('processing' => 'rawcomponents'),
+			'output'	=> array ('processing' => 'rawcomponents'),
 			'required'		=> 1,
 			'enableVersionControl'	=> $this->settings['enableVersionControl'],
 		));
@@ -304,7 +306,7 @@ class filespace
 		$form = new form (array (
 			'displayDescriptions'	=> false,
 			'displayRestrictions'	=> false,
-			'displayFormCompleteText'	=> false,
+			'showFormCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Create new directory',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
@@ -343,7 +345,7 @@ class filespace
 				# Attempt to create the directory
 				umask (0);
 				if (!mkdir (($_SERVER['DOCUMENT_ROOT'] . $location . $directoryName), 0770)) {
-					echo '<p>Apologies, but there was a problem creating the directory.</p>';
+					echo '<p class="warning">Apologies, but there was a problem creating the directory.</p>';
 				} else {
 					
 					# Log the directory creation
