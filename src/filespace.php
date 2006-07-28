@@ -2,7 +2,7 @@
 
 # (c) Martin Lucas-Smith, University of Cambridge
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.15 - 5/9/05
+# Version 2.16 - 28/7/06
 
 
 # Define a class generating a filespace
@@ -14,7 +14,7 @@ class filespace
 		# Load required libraries
 		require_once ('pureContent.php');
 		require_once ('application.php');
-		require_once ('ultimateForm.php');
+		require_once ('ultimateForm.php');	// Unzipping support requires 1.2.1 or later
 		require_once ('directories.php');
 		
 		# Assign the settings and run the main program if there are no errors
@@ -100,6 +100,7 @@ class filespace
 			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
+			'unzip' => true,	// Whether to unzip zip files on arrival
 		);
 		
 		# Apply the supplied argument or, if none, the default
@@ -149,10 +150,13 @@ class filespace
 		# If the location is the temporary location (e.g. has been reset), give a message to that effect
 		if ($location == $this->settings['temporaryLocation']) {$locationMessage = "Temporary (the webmaster will move the file and inform you)";} else {$locationMessage = $location;}
 		
+		# Check if unzipping support available
+		$this->settings['unzip'] = ($this->settings['unzip'] && extension_loaded ('zip'));
+		
 		# Create the form
 		$form = new form (array (
 			'displayDescriptions'	=> false,
-			'displayRestrictions'	=> false,
+			'displayRestrictions'	=> true,
 			'formCompleteText'	=> false,
 			'displayColons'			=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
@@ -169,6 +173,7 @@ class filespace
 			'output'	=> array ('processing' => 'rawcomponents'),
 			'required'		=> 1,
 			'enableVersionControl'	=> $this->settings['enableVersionControl'],
+			'unzip' => $this->settings['unzip'],
 		));
 		$form->input (array (
 			'name'			=> 'name',
@@ -211,15 +216,18 @@ class filespace
 					if (!empty ($file)) {
 						
 						# Obtain the size, name and type
-						#!# This whole stage needs to be moved into the form stage, by getting these raw components
+						#!# This whole stage needs to be moved into the form stage, by getting these raw components from $result directly
 						$filesize = ($_FILES['form']['size']['file'][$index] * 0.001);
 						$filename = $_FILES['form']['name']['file'][$index];
+						$filenameLink = $location . ($this->settings['unzip'] && strtolower (substr ($filename, -4)) == '.zip' ? '' : $filename);
+						$filename = ($this->settings['unzip'] && strtolower (substr ($filename, -4)) == '.zip' ? " [{$filename} unzipped]" : $filename);
 						$filetype = $_FILES['form']['type']['file'][$index];
 						
 						# Make a list of successes
-						$successesHtml .= "\n\t<li><a href=\"" . str_replace (' ', '%20', (htmlentities ($location . $filename))) . '">' . htmlentities ($filename) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span></li>\n";
+						#!# Needs to take account of unzipping
+						$successesHtml .= "\n\t<li><a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities ($filename) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span></li>\n";
 						$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $filename . ',' . $filesize . "\n";
-						$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($location . $filename)) . "\n  (size: " . $filesize . ' KB)';
+						$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 					}
 				}
 			}
@@ -244,9 +252,9 @@ class filespace
 				
 				# Build up an e-mail message
 				$message  = "\n\nThe following was uploaded to the filespace by $name:";
-				if ($notes != '') {$message .= "\n\n\nExplanatory notes:\n\n$notes";}
+				if ($notes) {$message .= "\n\n\nExplanatory notes:\n\n$notes";}
 				$message  .= "\n" . $emailMessage;
-				if ($location != '') {$message .= "\n\n\nLocation:\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', $location);}
+				if ($location) {$message .= "\n\n\nLocation:\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', $location);}
 				
 				# Start the e-mail headers
 				$emailHeaders = 'From: "' . $this->settings['administratorDescription'] . '" <' . $this->settings['administratorEmail'] . ">\n";
