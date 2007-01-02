@@ -2,7 +2,7 @@
 
 # (c) Martin Lucas-Smith, University of Cambridge
 # Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.16 - 28/7/06
+# Version 2.17 - 1/2/07
 
 
 # Define a class generating a filespace
@@ -226,7 +226,7 @@ class filespace
 						# Make a list of successes
 						#!# Needs to take account of unzipping
 						$successesHtml .= "\n\t<li><a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities ($filename) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span></li>\n";
-						$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $filename . ',' . $filesize . "\n";
+						$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . "\n";
 						$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 					}
 				}
