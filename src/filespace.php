@@ -1,8 +1,11 @@
 <?php
 
+# Class to create a helpdesk function
+# Version 2.2.1
+
+# Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
-# Licence: This is Free software, released without warranty under the GPL; see http://www.gnu.org/copyleft/gpl.html
-# Version 2.2.0 - 4/1/07
+# More info: http://download.geog.cam.ac.uk/projects/helpdesk/
 
 
 # Define a class generating a filespace
@@ -125,6 +128,10 @@ class filespace
 		/* Message box */
 		div.messagebox {float: right; width: 25%; border-left: 1px dashed #ccc; margin: 0 0 30px 15px; padding: 10px;}
 		div.messagebox ul {margin-left: 15px;}
+		/* Gallery */
+		div.gallery div.image {display: block; float: left; text-align: center;}
+		div.gallery div.image img {border: 1px solid #333; margin: 30px 10px 5px 0;}
+		div.gallery div.image p {margin-top: 0; margin-bottom: 0;}
 	</style>
 	<script language="javascript" type="text/javascript">
 		function setFocus() {
@@ -192,6 +199,7 @@ class filespace
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
 			'unzip' => true,	// Whether to unzip zip files on arrival
+			'emailSubjectLine' => true,	// Whether to allow the e-mail subject line to be set
 		);
 		
 		# Apply the supplied argument or, if none, the default
@@ -280,6 +288,14 @@ class filespace
 			'values'			=> array ('Inform group'),
 			'title'					=> 'Tick to have an e-mail sent to ' . $this->settings['groupDescription'] . ' informing them of the new file(s)',
 		));
+		if ($this->settings['emailSubjectLine']) {
+			$form->input (array (
+				'name'			=> 'subject',
+				'title'					=> 'Subject line (optional; used for e-mail notifications)',
+				'required'				=> false,
+				'maxlength'		=> 80,
+			));
+		}
 		$form->textarea (array (
 			'name'			=> 'notes',
 			'title'					=> 'Explanatory notes (optional)',
@@ -362,7 +378,7 @@ class filespace
 		if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "$email where it is.";}
 		
 		# Send the e-mail
-		if (!mail ($emailRecipient, $this->settings['emailSubject'], wordwrap ($message), $emailHeaders)) {
+		if (!mail ($emailRecipient, ($this->settings['emailSubjectLine'] && $result['subject'] ? $result['subject'] : $this->settings['emailSubject']), wordwrap ($message), $emailHeaders)) {
 			echo '<p><strong>Although the file transfer was OK, there was some kind of problem with sending out a confirmation e-mail.</strong> Please contact the webmaster to inform them of the addition, at ' . $this->settings['administratorEmail'] . '.</p>';
 			return false;
 		}
