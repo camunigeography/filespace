@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.1
+# Version 2.2.2
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -19,6 +19,7 @@ class filespace
 		require_once ('application.php');
 		require_once ('ultimateForm.php');	// Unzipping support requires 1.2.1 or later
 		require_once ('directories.php');
+		require_once ('csv.php');
 		
 		# Assign the settings and run the main program if there are no errors
 		if (!$this->setup ($settings)) {return false;}
@@ -332,7 +333,7 @@ class filespace
 					# Make a list of successes
 					#!# Needs to take account of unzipping
 					$successesHtml .= "\n\t<li><a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities ($filename) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span></li>\n";
-					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . "\n";
+					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($result['subject']) . ',' . csv::safeDataCell ($notes) . "\n";
 					$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 				}
 			}
