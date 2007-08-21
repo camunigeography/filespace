@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.2
+# Version 2.2.3
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -124,6 +124,7 @@ class filespace
 		td {padding: 10px 2px 0;}
 		td.title {text-align: right; vertical-align: top;}
 		.error {color: red;}
+		.comment {color: gray;}
 		.restriction, .description {color: #999; font-style: italic;}
 		input, select, textarea, option, td.data label {color: #603;}
 		/* Message box */
@@ -156,7 +157,7 @@ class filespace
 	
 	$footer = '
 		<div id="footer">
-			<p>For any technical problems found, please <a href="{administratorContactPage}" target="_blank" title="(Opens in a new window)">contact the webmaster</a>.</p>
+			<p class="comment">For any technical problems found, please <a href="{administratorContactPage}" target="_blank" title="(Opens in a new window)">contact the webmaster</a>.</p>
 		</div>
 	</div>
 </body>
@@ -398,7 +399,7 @@ class filespace
 		
 		# Make sure the directory exists
 		if (!is_dir ($_SERVER['DOCUMENT_ROOT'] . $location)) {
-			echo '<p class="warning">You appear somehow to have selected a non-existent directory. Please select another.</p>';
+			echo '<p class="warning">You appear somehow to have selected a non-existent folder. Please select another.</p>';
 			return;
 		}
 		
@@ -444,7 +445,7 @@ class filespace
 		# Attempt to create the directory
 		umask (0);
 		if (!mkdir (($_SERVER['DOCUMENT_ROOT'] . $location . $result['directoryName']), 0770)) {
-			echo '<p class="warning">Apologies, but there was a problem creating the directory.</p>';
+			echo '<p class="warning">Apologies, but there was a problem creating the folder.</p>';
 			return false;
 		}
 		
@@ -453,7 +454,7 @@ class filespace
 		application::writeDataToFile ($logString, $this->settings['logFile']);
 		
 		# Otherwise provide a link to the new location
-		echo '<p>The directory was successfully created - <a href="' . $location . $result['directoryName'] . '/">go there now</a>.</p>';
+		echo '<p>The folder was successfully created - <a href="' . $location . $result['directoryName'] . '/">go there now</a> or <a href="' . $location . $result['directoryName'] . '/?add">add an item to the new folder</a>.</p>';
 		
 		# Take the user directly to the new directory if required and output_buffering is on
 		if ($goToCreatedDirectoryAutomatically && (ini_get ('output_buffering'))) {
