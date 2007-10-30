@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.4
+# Version 2.2.5
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -177,10 +177,12 @@ class filespace
 			'goToCreatedDirectoryAutomatically' =>	false,	// Whether creation of a new directory should result in a link to it or take the user directly there; requires output_buffering switched on in php.ini (or equivalent)
 			'uploadWidgets' =>	4,	// Number of upload boxes to appear on the page
 			'enableVersionControl' =>	true,	// Whether to enable version control for replacing existing files
+			'showFullUrlInSuccesses' => false,	// Whether to show the full URL in the list of successes
 			'emailAddressRequired' =>	true,	// Whether an e-mail address is required
 			'temporaryLocation' =>	'/temporary/',	// Temporary location for unspecified file saving, make sure this exists and is writable by the webserver 'user'!
 			'bannedDirectories' =>	array ('/temporary/'),	// Case insensitive directories where users cannot make changes, does NOT include subdirectories
-			'emailSubject' =>	'Addition to the filespace',	// E-mail subject line
+			'emailSubject' =>	'Addition to the filespace',	// E-mail subject line: either text or false
+			'emailSubjectDisallow' =>	false,	// Disallowed subject line
 			'logFile' =>	'./filespacelog.csv',	// The CSV log file (actual disk location) where changes are logged, ensure this exists and is writable by the webserver 'user'
 			'hiddenFiles' =>	array ('.ht*', '.title.txt', '/favicon.ico', '/robots.txt', '/temporary/', '/changelog.csv',),	// Hidden files, starting with / indicates an absolute path and * at the start/end (but not middle) is a wildcard match, trailing slashes optional
 			'organisationTitle' =>	NULL,	// Title of the organsation
@@ -201,7 +203,6 @@ class filespace
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
 			'unzip' => true,	// Whether to unzip zip files on arrival
-			'emailSubjectLine' => true,	// Whether to allow the e-mail subject line to be added; supplying text here pre-fills this
 		);
 		
 		# Apply the supplied argument or, if none, the default
@@ -262,7 +263,6 @@ class filespace
 			'submitButtonText'		=> 'Copy over file(s)',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
 		));
-		
 		$form->heading ('p', 'Use this short form to copy file(s) across.');
 		$form->heading ('p', 'Location: <strong>' . (($location != $this->settings['temporaryLocation']) ? '<a href="' . $location . '" target="_blank" title="(Opens in a new window)">' . $location . '</a>' : 'Temporary area') . '</strong>' . (isSet ($locationDisallowedMessage) ? $locationDisallowedMessage : ''));
 		$form->upload (array (
@@ -285,22 +285,26 @@ class filespace
 			'title'					=> 'Your e-mail address',
 			'required'				=> $this->settings['emailAddressRequired'],
 		));
-		$form->checkboxes (array (
-			'name'			=> 'informGroup',
-			'values'			=> array ('Inform group'),
-			'title'					=> 'Tick to have an e-mail sent to ' . $this->settings['groupDescription'] . ' informing them of the new file(s)',
-		));
-		if ($this->settings['emailSubjectLine']) {
+		if ($this->settings['emailSubject']) {
 			$form->input (array (
 				'name'			=> 'subject',
-				'title'					=> 'Subject line (used for e-mail notifications)',
-				'required'				=> true,
+				'title'					=> 'Subject line (used for notifications)',
+				'required'				=> false,
+				'size' => 38,
 				'maxlength'		=> 80,
-				'default' => ($this->settings['emailSubjectLine'] !== true ? $this->settings['emailSubjectLine'] : ''),
-				'disallow' => ($this->settings['emailSubjectLine'] !== true ? array ('^' . trim ($this->settings['emailSubjectLine']) . '$' => 'Please fill in a subject line') : ''),
+				'default' => $this->settings['emailSubject'],
+				'required' => false,	// If nothing is supplied, a default is added later
+				'disallow' => ($this->settings['emailSubjectDisallow'] ? $this->settings['emailSubjectDisallow'] : false),
 				'trim' => false,
 			));
 		}
+		$form->radiobuttons (array (
+			'name'			=> 'informGroup',
+			'values'			=> array ('admin' => 'Inform admin', 'both' => 'Inform admin and group'),
+			'required'			=> true,
+			'default'			=> 'admin',
+			'title'					=> 'Inform ' . $this->settings['groupDescription'] . ' of the new file(s)?',
+		));
 		$form->textarea (array (
 			'name'			=> 'notes',
 			'title'					=> 'Explanatory notes (optional)',
@@ -312,8 +316,9 @@ class filespace
 		$files = $result['file'];
 		$name = $result['name'];
 		$email = $result['email'];
-		$informGroup = $result['informGroup']['Inform group'];
+		$informGroup = ($result['informGroup'] == 'both');
 		$notes = $result['notes'];
+		$emailSubject = ((isSet ($result['subject']) && $result['subject']) ? $result['subject'] : 'Addition to the filespace');
 		
 		# Start variables to hold HTML and e-mail messages and a logfile entry
 		$failuresHtml = '';
@@ -336,8 +341,8 @@ class filespace
 					
 					# Make a list of successes
 					#!# Needs to take account of unzipping
-					$successesHtml .= "\n\t<li><a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities ($filename) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span></li>\n";
-					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($result['subject']) . ',' . csv::safeDataCell ($notes) . "\n";
+					$successesHtml[] = "<a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities (($this->settings['showFullUrlInSuccesses'] ? 'http://' . $_SERVER['SERVER_NAME'] . $location . $filename : $filename)) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span>";
+					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($emailSubject) . ',' . csv::safeDataCell ($notes) . "\n";
 					$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 				}
 			}
@@ -354,7 +359,7 @@ class filespace
 		
 		# Build up a success confirmation message and display it
 		$html  = "\n<p>Many thanks, $name. <strong>The following was successfully copied over</strong>:</p>";
-		$html .= "\n<ul>\n{$successesHtml}\n</ul>";
+		$html .= "\n" . application::htmlUl ($successesHtml);
 		$html .= "\n<p>Location: <a href=\"" . str_replace (' ', '%20', (htmlentities ($location))) . '">http://' . $_SERVER['SERVER_NAME'] . htmlentities ($location) . '</a></p>';
 		echo $html;
 		
@@ -383,7 +388,7 @@ class filespace
 		if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "$email where it is.";}
 		
 		# Send the e-mail
-		if (!mail ($emailRecipient, ($this->settings['emailSubjectLine'] && $result['subject'] ? $result['subject'] : $this->settings['emailSubject']), wordwrap ($message), $emailHeaders)) {
+		if (!mail ($emailRecipient, $emailSubject, wordwrap ($message), $emailHeaders)) {
 			echo '<p><strong>Although the file transfer was OK, there was some kind of problem with sending out a confirmation e-mail.</strong> Please contact the webmaster to inform them of the addition, at ' . $this->settings['administratorEmail'] . '.</p>';
 			return false;
 		}
