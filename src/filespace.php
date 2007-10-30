@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.3
+# Version 2.2.4
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -201,7 +201,7 @@ class filespace
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
 			'unzip' => true,	// Whether to unzip zip files on arrival
-			'emailSubjectLine' => true,	// Whether to allow the e-mail subject line to be set
+			'emailSubjectLine' => true,	// Whether to allow the e-mail subject line to be added; supplying text here pre-fills this
 		);
 		
 		# Apply the supplied argument or, if none, the default
@@ -293,9 +293,12 @@ class filespace
 		if ($this->settings['emailSubjectLine']) {
 			$form->input (array (
 				'name'			=> 'subject',
-				'title'					=> 'Subject line (optional; used for e-mail notifications)',
-				'required'				=> false,
+				'title'					=> 'Subject line (used for e-mail notifications)',
+				'required'				=> true,
 				'maxlength'		=> 80,
+				'default' => ($this->settings['emailSubjectLine'] !== true ? $this->settings['emailSubjectLine'] : ''),
+				'disallow' => ($this->settings['emailSubjectLine'] !== true ? array ('^' . trim ($this->settings['emailSubjectLine']) . '$' => 'Please fill in a subject line') : ''),
+				'trim' => false,
 			));
 		}
 		$form->textarea (array (
