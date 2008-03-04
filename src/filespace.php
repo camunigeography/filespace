@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.5
+# Version 2.2.6
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -262,6 +262,7 @@ class filespace
 			'formCompleteText'	=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
+			'name' => false,
 		));
 		$form->heading ('p', 'Use this short form to copy file(s) across.');
 		$form->heading ('p', 'Location: <strong>' . (($location != $this->settings['temporaryLocation']) ? '<a href="' . $location . '" target="_blank" title="(Opens in a new window)">' . $location . '</a>' : 'Temporary area') . '</strong>' . (isSet ($locationDisallowedMessage) ? $locationDisallowedMessage : ''));
@@ -312,7 +313,7 @@ class filespace
 		));
 		
 		# Obtain the data from a posted form
-		if (!$result = $form->processForm ()) {return false;}
+		if (!$result = $form->process ()) {return false;}
 		$files = $result['file'];
 		$name = $result['name'];
 		$email = $result['email'];
@@ -341,7 +342,7 @@ class filespace
 					
 					# Make a list of successes
 					#!# Needs to take account of unzipping
-					$successesHtml[] = "<a href=\"" . str_replace (' ', '%20', (htmlentities ($filenameLink))) . '">' . htmlentities (($this->settings['showFullUrlInSuccesses'] ? 'http://' . $_SERVER['SERVER_NAME'] . $location . $filename : $filename)) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span>";
+					$successesHtml[] = "<a href=\"" . str_replace (' ', '%20', (htmlspecialchars ($filenameLink))) . '">' . htmlspecialchars (($this->settings['showFullUrlInSuccesses'] ? 'http://' . $_SERVER['SERVER_NAME'] . $location . $filename : $filename)) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span>";
 					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($emailSubject) . ',' . csv::safeDataCell ($notes) . "\n";
 					$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 				}
@@ -360,7 +361,7 @@ class filespace
 		# Build up a success confirmation message and display it
 		$html  = "\n<p>Many thanks, $name. <strong>The following was successfully copied over</strong>:</p>";
 		$html .= "\n" . application::htmlUl ($successesHtml);
-		$html .= "\n<p>Location: <a href=\"" . str_replace (' ', '%20', (htmlentities ($location))) . '">http://' . $_SERVER['SERVER_NAME'] . htmlentities ($location) . '</a></p>';
+		$html .= "\n<p>Location: <a href=\"" . str_replace (' ', '%20', (htmlspecialchars ($location))) . '">http://' . $_SERVER['SERVER_NAME'] . htmlspecialchars ($location) . '</a></p>';
 		echo $html;
 		
 		# Log the change
@@ -427,6 +428,7 @@ class filespace
 			'formCompleteText'	=> false,
 			'submitButtonText'		=> 'Create new directory',
 			'developmentEnvironment' => $this->settings['developmentEnvironment'],
+			'name' => false,
 		));
 		$form->heading ('p', 'Use this short form to create a new folder.');
 		$form->input (array (
@@ -448,7 +450,7 @@ class filespace
 		));
 		
 		# Obtain the data from a posted form
-		if (!$result = $form->processForm ()) {return false;}
+		if (!$result = $form->process ()) {return false;}
 		
 		# Attempt to create the directory
 		umask (0);
