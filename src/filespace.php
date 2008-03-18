@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.6
+# Version 2.2.7
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -88,7 +88,6 @@ class filespace
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html lang="en">
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
 	<title>{organisationTitle} filespace</title>
 	<style type="text/css" media="screen">
 		/* Layout */
@@ -271,7 +270,7 @@ class filespace
 			'title'					=> 'File(s) to copy over from your computer<br />(max. ' . ini_get ('upload_max_filesize') . 'B per submission</strong> of any number of files)',
 			'directory'		=> $_SERVER['DOCUMENT_ROOT'] . $location,
 			'subfields'				=> $this->settings['uploadWidgets'],
-			'output'	=> array ('processing' => 'rawcomponents'),
+			'output'	=> array ('processing' => 'compiled'),
 			'required'		=> 1,
 			'enableVersionControl'	=> $this->settings['enableVersionControl'],
 			'unzip' => $this->settings['unzip'],
@@ -314,11 +313,9 @@ class filespace
 		
 		# Obtain the data from a posted form
 		if (!$result = $form->process ()) {return false;}
-		$files = $result['file'];
-		$name = $result['name'];
-		$email = $result['email'];
+		
+		# Create shortcuts
 		$informGroup = ($result['informGroup'] == 'both');
-		$notes = $result['notes'];
 		$emailSubject = ((isSet ($result['subject']) && $result['subject']) ? $result['subject'] : 'Addition to the filespace');
 		
 		# Start variables to hold HTML and e-mail messages and a logfile entry
@@ -328,25 +325,22 @@ class filespace
 		$logString = '';
 		
 		# Loop through each uploadable file
-		foreach ($_FILES['form']['name'] as $files) {
-			foreach ($files as $index => $file) {
-				if (!empty ($file)) {
-					
-					# Obtain the size, name and type
-					#!# This whole stage needs to be moved into the form stage, by getting these raw components from $result directly
-					$filesize = ($_FILES['form']['size']['file'][$index] * 0.001);
-					$filename = $_FILES['form']['name']['file'][$index];
-					$filenameLink = $location . ($this->settings['unzip'] && strtolower (substr ($filename, -4)) == '.zip' ? '' : $filename);
-					$filename = ($this->settings['unzip'] && strtolower (substr ($filename, -4)) == '.zip' ? " [{$filename} unzipped]" : $filename);
-					$filetype = $_FILES['form']['type']['file'][$index];
-					
-					# Make a list of successes
-					#!# Needs to take account of unzipping
-					$successesHtml[] = "<a href=\"" . str_replace (' ', '%20', (htmlspecialchars ($filenameLink))) . '">' . htmlspecialchars (($this->settings['showFullUrlInSuccesses'] ? 'http://' . $_SERVER['SERVER_NAME'] . $location . $filename : $filename)) . '</a><span class="comment"> (size: ' . $filesize . ' KB; type: ' . $filetype . ")</span>";
-					$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",$name,$email,added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($emailSubject) . ',' . csv::safeDataCell ($notes) . "\n";
-					$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($_FILES['form']['name']['file'][$index], -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
-				}
-			}
+		foreach ($result['file'] as $fullPath => $file) {
+			
+			# Create shortcuts
+			$filename = $file['name'];
+			$filesize = ($file['size'] * 0.001);
+			$filetype = $file['type'];
+			
+			# Assemble the filename links
+			$filenameLink = ereg_replace ('^' . $_SERVER['DOCUMENT_ROOT'], '', $fullPath);
+			$filename = $filename . ($this->settings['unzip'] && (isSet ($file['_fromZip'])) ? " [unzipped from {$file['_fromZip']}]" : '');
+			
+			# Make a list of successes
+			#!# Needs to take account of unzipping
+			$successesHtml[] = "<a href=\"" . str_replace (' ', '%20', (htmlspecialchars ($filenameLink))) . '">' . htmlspecialchars (($this->settings['showFullUrlInSuccesses'] ? 'http://' . $_SERVER['SERVER_NAME'] . $location . $filename : $filename)) . '</a><span class="comment"> (size: ' . $filesize . ' KB' . ($filetype ? '; type: ' . $filetype : '') . ")</span>";
+			$logString .= $_SERVER['SERVER_NAME'] . ',' . date ('d/M/Y G:i:s') . ',' . $_SERVER['REMOTE_ADDR'] . ",{$result['name']},{$result['email']},added," . $location . ',' . $_SERVER['DOCUMENT_ROOT'] . '/' . $filename . ',' . $filesize . ',' . csv::safeDataCell ($emailSubject) . ',' . csv::safeDataCell ($result['notes']) . "\n";
+			$emailMessage .= "\n\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', ($filenameLink)) . ($this->settings['unzip'] && (substr ($filename, -4)) == '.zip' ? "\n{$filename}" : '') . "\n  (size: " . $filesize . ' KB)';
 		}
 		
 		# Flag up any failures
@@ -359,7 +353,7 @@ class filespace
 		if (!$successesHtml) {return false;}
 		
 		# Build up a success confirmation message and display it
-		$html  = "\n<p>Many thanks, $name. <strong>The following was successfully copied over</strong>:</p>";
+		$html  = "\n<p>Many thanks, {$result['name']}. <strong>The following was successfully copied over</strong>:</p>";
 		$html .= "\n" . application::htmlUl ($successesHtml);
 		$html .= "\n<p>Location: <a href=\"" . str_replace (' ', '%20', (htmlspecialchars ($location))) . '">http://' . $_SERVER['SERVER_NAME'] . htmlspecialchars ($location) . '</a></p>';
 		echo $html;
@@ -368,14 +362,14 @@ class filespace
 		application::writeDataToFile ($logString, $this->settings['logFile']);
 		
 		# Build up an e-mail message
-		$message  = "\n\nThe following was uploaded to the filespace by $name:";
-		if ($notes) {$message .= "\n\n\nExplanatory notes:\n\n$notes";}
+		$message  = "\n\nThe following was uploaded to the filespace by {$result['name']}:";
+		if ($result['notes']) {$message .= "\n\n\nExplanatory notes:\n\n{$result['notes']}";}
 		$message  .= "\n" . $emailMessage;
 		if ($location) {$message .= "\n\n\nLocation:\nhttp://" . $_SERVER['SERVER_NAME'] . str_replace (' ', '%20', $location);}
 		
 		# Start the e-mail headers
 		$emailHeaders = 'From: "' . $this->settings['administratorDescription'] . '" <' . $this->settings['administratorEmail'] . ">\n";
-		if ($email) {$emailHeaders .= "Reply-To: \"$name\" <$email>\n";}
+		if ($result['email']) {$emailHeaders .= "Reply-To: \"{$result['name']}\" <{$result['email']}>\n";}
 		
 		# Determine the e-mail recipient - only send to the group address if informGroup is requested AND the location is not the temporary location, but ensure the filespace administrator is informed either way
 		if ($informGroup) {
@@ -386,7 +380,7 @@ class filespace
 		}
 		
 		# If the temporary location is specified, note this in the e-mail to the administrator, specifying whether to reply to the group or the individual
-		if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "$email where it is.";}
+		if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "{$result['email']} where it is.";}
 		
 		# Send the e-mail
 		if (!mail ($emailRecipient, $emailSubject, wordwrap ($message), $emailHeaders)) {
