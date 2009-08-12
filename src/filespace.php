@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a helpdesk function
-# Version 2.2.7
+# Version 2.3.0
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -20,6 +20,7 @@ class filespace
 		require_once ('ultimateForm.php');	// Unzipping support requires 1.2.1 or later
 		require_once ('directories.php');
 		require_once ('csv.php');
+		require_once ('sitemap.php');
 		
 		# Assign the settings and run the main program if there are no errors
 		if (!$this->setup ($settings)) {return false;}
@@ -31,6 +32,7 @@ class filespace
 				<li><a href="?add">+ Add <strong>new item</strong> here</a></li>
 				<li><a href="?directory">&radic; Add new folder here</a></li>
 				' . ($_SERVER['QUERY_STRING'] == 'date' ? '<li><a href="./">N Change to: list by name</a></li>' : '<li><a href="?date">D Change to: list by date</a></li>') . '
+				<li><a href="?hierarchy">&#9560; Sitemap</a></li>
 				' . (ereg ('^(add|directory)$', $_SERVER['QUERY_STRING']) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
 			</ul>
 			<h1><a href="/">' . $this->settings['organisationTitle'] . ' filespace</a></h1>
@@ -59,17 +61,22 @@ class filespace
 				$this->createDirectory ($this->settings['bannedDirectories'], $this->settings['goToCreatedDirectoryAutomatically']);
 				break;
 				
+			# Folder hierarchy
+			case 'hierarchy':
+				echo $this->sitemap ();
+				break;
+				
 			# If no action is specified, by default show the directory listing
 			default:
 				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], ($this->settings['photoModeOnly'] ? array_merge ($this->settings['hiddenFiles'], array ('*.jpg', '*.gif', '*.png')) : $this->settings['hiddenFiles']), $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters'], $this->settings['showOnly'], ($_SERVER['QUERY_STRING'] == 'date' ? 'time' : 'name'));
-		}
-		
-		# Show photo thumbnails if required
-		if ($this->settings['photoDirectory']) {
-			if (eregi ('^' . $this->settings['photoDirectory'], $_SERVER['REQUEST_URI'])) {
-				require_once ('image.php');
-				echo image::gallery (true, false, $size = 180);
-			}
+				
+				# Show photo thumbnails if required
+				if ($this->settings['photoDirectory']) {
+					if (eregi ('^' . $this->settings['photoDirectory'], $_SERVER['REQUEST_URI'])) {
+						require_once ('image.php');
+						echo image::gallery (true, false, $size = 180);
+					}
+				}
 		}
 		
 		# Finish the page
@@ -464,6 +471,21 @@ class filespace
 		if ($goToCreatedDirectoryAutomatically && (ini_get ('output_buffering'))) {
 			header ('Location: http://' . $_SERVER['SERVER_NAME'] . $location . $result['directoryName']);
 		}
+	}
+	
+	
+	# Function to show the folder hierarchy
+	function sitemap ()
+	{
+		# Start the HTML
+		$html  = '';
+		
+		# Load and instantiate the sitemap class
+		require_once ('sitemap.php');
+		echo sitemap::main ($this->settings['bannedDirectories'], $titleFile = false, '/', true, '<h2>Sitemap</h2>');
+		
+		# Return the HTML
+		return $html;
 	}
 }
 
