@@ -1,7 +1,7 @@
 <?php
 
-# Class to create a helpdesk function
-# Version 2.3.0
+# Class to create a filespace function
+# Version 2.4.0
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -33,7 +33,7 @@ class filespace
 				<li><a href="?directory">&radic; Add new folder here</a></li>
 				' . ($_SERVER['QUERY_STRING'] == 'date' ? '<li><a href="./">N Change to: list by name</a></li>' : '<li><a href="?date">D Change to: list by date</a></li>') . '
 				<li><a href="?hierarchy">&#9560; Sitemap</a></li>
-				' . (ereg ('^(add|directory)$', $_SERVER['QUERY_STRING']) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
+				' . (in_array ($_SERVER['QUERY_STRING'], array ('add', 'directory')) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
 			</ul>
 			<h1><a href="/">' . $this->settings['organisationTitle'] . ' filespace</a></h1>
 		</div>';
@@ -72,7 +72,8 @@ class filespace
 				
 				# Show photo thumbnails if required
 				if ($this->settings['photoDirectory']) {
-					if (eregi ('^' . $this->settings['photoDirectory'], $_SERVER['REQUEST_URI'])) {
+					$regexp = '^' . $this->settings['photoDirectory'];
+					if (preg_match ('/' . addcslashes ($regexp, '/') . '/', $_SERVER['REQUEST_URI'])) {
 						require_once ('image.php');
 						echo image::gallery (true, false, $size = 180);
 					}
@@ -340,7 +341,7 @@ class filespace
 			$filetype = $file['type'];
 			
 			# Assemble the filename links
-			$filenameLink = ereg_replace ('^' . $_SERVER['DOCUMENT_ROOT'], '', $fullPath);
+			$filenameLink = preg_replace ('/' . addcslashes ('^' . $_SERVER['DOCUMENT_ROOT'], '/') . '/', '', $fullPath);
 			$filename = $filename . ($this->settings['unzip'] && (isSet ($file['_fromZip'])) ? " [unzipped from {$file['_fromZip']}]" : '');
 			
 			# Make a list of successes
@@ -421,8 +422,10 @@ class filespace
 		
 		# Construct a regexp of disallowed filenames (odd characters plus existing files)
 		#!# On Windows this won't catch the same name in different case
+		$disallow = '([\\\\/:<>?|*"\']+)';
+		
+		# Get current files
 		$current = directories::listFiles ($location);
-		$disallow = '(([\\/:<>?|*"\']+)' . ($current ? '|(^(' . implode ('|', array_keys ($current)) . ')$)' : '') . ')';
 		
 		# Create the form
 		$form = new form (array (
@@ -438,6 +441,7 @@ class filespace
 			'description'			=> 'Special characters and existing folder names disallowed',
 			'required'				=> true,
 			'disallow'				=> $disallow,
+			'current'				=> ($current ? array_keys ($current) : false),
 		));
 		$form->input (array (
 			'name'			=> 'name',
