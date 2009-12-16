@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a filespace function
-# Version 2.4.0
+# Version 2.4.1
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -205,7 +205,6 @@ class filespace
 			'prependedFile' =>	NULL,	// Start of house style
 			'appendedFile' =>	NULL,	// End of house style
 			'frontPageText' =>	'',	// Optional text on the front page
-			'developmentEnvironment' =>	false,	// Whether to run in development mode
 			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
@@ -268,7 +267,6 @@ class filespace
 		$form = new form (array (
 			'formCompleteText'	=> false,
 			'submitButtonText'		=> 'Copy over file(s)',
-			'developmentEnvironment' => $this->settings['developmentEnvironment'],
 			'name' => false,
 		));
 		$form->heading ('p', 'Use this short form to copy file(s) across.');
@@ -431,7 +429,6 @@ class filespace
 		$form = new form (array (
 			'formCompleteText'	=> false,
 			'submitButtonText'		=> 'Create new directory',
-			'developmentEnvironment' => $this->settings['developmentEnvironment'],
 			'name' => false,
 		));
 		$form->heading ('p', 'Use this short form to create a new folder.');
