@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a filespace function
-# Version 2.4.1
+# Version 2.4.2
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -389,7 +389,7 @@ class filespace
 		if ($location == '') {$message .= "\n\n\n**Note to the administrator: **\nPlease move the file and inform " . ($informGroup ? $this->settings['groupDescriptionBrief'] . 'and ' : '') . "{$result['email']} where it is.";}
 		
 		# Send the e-mail
-		if (!mail ($emailRecipient, $emailSubject, wordwrap ($message), $emailHeaders)) {
+		if (!application::utf8Mail ($emailRecipient, $emailSubject, wordwrap ($message), $emailHeaders)) {
 			echo '<p><strong>Although the file transfer was OK, there was some kind of problem with sending out a confirmation e-mail.</strong> Please contact the webmaster to inform them of the addition, at ' . $this->settings['administratorEmail'] . '.</p>';
 			return false;
 		}
