@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a filespace function
-# Version 2.4.2
+# Version 2.4.3
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -25,6 +25,14 @@ class filespace
 		# Assign the settings and run the main program if there are no errors
 		if (!$this->setup ($settings)) {return false;}
 		
+		# External users cannot access the hierarchy section
+		$this->userIsExternal = ($_SERVER['REMOTE_USER'] == $this->settings['external']);
+		if ($this->userIsExternal) {
+			if ($_SERVER['QUERY_STRING'] == 'hierarchy') {
+				$_SERVER['QUERY_STRING'] = false;
+			}
+		}
+		
 		# Start the page
 		echo $this->settings['header'];
 		echo "\n\t\t" . '<div id="header">
@@ -32,7 +40,7 @@ class filespace
 				<li><a href="?add">+ Add <strong>new item</strong> here</a></li>
 				<li><a href="?directory">&radic; Add new folder here</a></li>
 				' . ($_SERVER['QUERY_STRING'] == 'date' ? '<li><a href="./">N Change to: list by name</a></li>' : '<li><a href="?date">D Change to: list by date</a></li>') . '
-				<li><a href="?hierarchy">&#9560; Sitemap</a></li>
+				' . ($this->userIsExternal ? '' : '<li><a href="?hierarchy">&#9560; Sitemap</a></li>') . '
 				' . (in_array ($_SERVER['QUERY_STRING'], array ('add', 'directory')) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
 			</ul>
 			<h1><a href="/">' . $this->settings['organisationTitle'] . ' filespace</a></h1>
@@ -209,6 +217,7 @@ class filespace
 			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
 			'showOnly' => array (),	// Only these directories should be shown
 			'unzip' => true,	// Whether to unzip zip files on arrival
+			'external' => 'external',	// Username of external user
 		);
 		
 		# Apply the supplied argument or, if none, the default
