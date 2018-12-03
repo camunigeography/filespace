@@ -1,18 +1,18 @@
 <?php
 
 # Class to create a filespace function
-# Version 2.4.3
+# Version 2.5.0
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
-# More info: http://download.geog.cam.ac.uk/projects/helpdesk/
+# More info: https://download.geog.cam.ac.uk/projects/filespace/
 
 
 # Define a class generating a filespace
 class filespace
 {
 	# Constructor
-	function filespace ($settings)
+	function __construct ($settings)
 	{
 		# Load required libraries
 		require_once ('pureContent.php');
@@ -335,7 +335,7 @@ class filespace
 		
 		# Start variables to hold HTML and e-mail messages and a logfile entry
 		$failuresHtml = '';
-		$successesHtml = '';
+		$successesHtml = array ();
 		$emailMessage = '';
 		$logString = '';
 		
