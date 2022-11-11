@@ -1,7 +1,7 @@
 <?php
 
 # Class to create a filespace function
-# Version 2.5.0
+# Version 2.5.1
 
 # Licence: GPL
 # (c) Martin Lucas-Smith, University of Cambridge
@@ -492,7 +492,8 @@ class filespace
 		
 		# Load and instantiate the sitemap class
 		require_once ('sitemap.php');
-		echo sitemap::main ($this->settings['bannedDirectories'], $titleFile = false, '/', true, '<h2>Sitemap</h2>');
+		$sitemap = new sitemap ();
+		echo $sitemap->main ($this->settings['bannedDirectories'], $titleFile = false, '/', true, '<h2>Sitemap</h2>');
 		
 		# Return the HTML
 		return $html;
