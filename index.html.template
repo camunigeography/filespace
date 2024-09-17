@@ -1,0 +1,16 @@
+<?php
+
+# Define the settings
+$settings = array (
+	'name' =>	'Demonstration',
+	'logFile' =>	'/path/to/logs/www.example.com-changelog.csv',
+	'administratorContactPage' =>	'https://www.example.com/webmaster/',
+	'ownerEmail' =>	$_SERVER['SERVER_ADMIN'],
+	'groupEmail' =>	$_SERVER['SERVER_ADMIN'],
+);
+
+# Create a new filespace with the above settings
+require_once ('vendor/autoload.php');
+new filespace ($settings);
+
+?>

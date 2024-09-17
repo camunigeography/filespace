@@ -1,111 +1,57 @@
 <?php
 
-# Class to create a filespace function
-# Version 2.5.1
-
-# Licence: GPL
-# (c) Martin Lucas-Smith, University of Cambridge
-# More info: https://download.geog.cam.ac.uk/projects/filespace/
-
-
-# Define a class generating a filespace
+# Define a class to create a filespace
 class filespace
 {
-	# Constructor
-	function __construct ($settings)
+	# Function to assign defaults additional to the general application defaults
+	private function defaults ()
 	{
-		# Load required libraries
-		require_once ('pureContent.php');
-		require_once ('application.php');
-		require_once ('ultimateForm.php');	// Unzipping support requires 1.2.1 or later
-		require_once ('directories.php');
-		require_once ('csv.php');
-		require_once ('sitemap.php');
-		
-		# Assign the settings and run the main program if there are no errors
-		if (!$this->setup ($settings)) {return false;}
-		
-		# External users cannot access the hierarchy section
-		$this->userIsExternal = ($_SERVER['REMOTE_USER'] == $this->settings['external']);
-		if ($this->userIsExternal) {
-			if ($_SERVER['QUERY_STRING'] == 'hierarchy') {
-				$_SERVER['QUERY_STRING'] = false;
-			}
-		}
-		
-		# Start the page
-		echo $this->settings['header'];
-		echo "\n\t\t" . '<div id="header">
-			<ul class="functions">
-				<li><a href="?add">+ Add <strong>new item</strong> here</a></li>
-				<li><a href="?directory">&radic; Add new folder here</a></li>
-				' . ($_SERVER['QUERY_STRING'] == 'date' ? '<li><a href="./">N Change to: list by name</a></li>' : '<li><a href="?date">D Change to: list by date</a></li>') . '
-				' . ($this->userIsExternal ? '' : '<li><a href="?hierarchy">&#9560; Sitemap</a></li>') . '
-				' . (in_array ($_SERVER['QUERY_STRING'], array ('add', 'directory')) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
-			</ul>
-			<h1><a href="/">' . $this->settings['organisationTitle'] . ' filespace</a></h1>
-		</div>';
-		echo "\n\n\t\t" . '<p class="navigation">You are in: ' . directories::trail ()  . '</p>';
-		
-		# Determine the current location
-		$this->location = str_replace ('?' . $_SERVER['QUERY_STRING'], '', urldecode ($_SERVER['REQUEST_URI']));
-		
-		# Add a welcome message on the front page
-		if ($this->location == '/') {
-			echo "\n\n\t\t" . '<p><strong>Welcome to the ' . $this->settings['organisationTitle'] . ' filespace.</strong> <em>Please bookmark this page!</em><br />Files/folders can be added using the links above.</p>';
-			echo $this->settings['frontPageText'];
-		}
-		
-		# Take action based on the query string
-		switch ($_SERVER['QUERY_STRING']) {
-			
-			# If the query string is set to 'add', load the upload form library and create a form
-			case 'add':
-				$this->uploadForm ();
-				break;
-				
-			# If the query string is set to 'directory', load the directory creation form library and create a form
-			case 'directory':
-				$this->createDirectory ($this->settings['bannedDirectories'], $this->settings['goToCreatedDirectoryAutomatically']);
-				break;
-				
-			# Folder hierarchy
-			case 'hierarchy':
-				echo $this->sitemap ();
-				break;
-				
-			# If no action is specified, by default show the directory listing
-			default:
-				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], ($this->settings['photoModeOnly'] ? array_merge ($this->settings['hiddenFiles'], array ('*.jpg', '*.gif', '*.png')) : $this->settings['hiddenFiles']), $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters'], $this->settings['showOnly'], ($_SERVER['QUERY_STRING'] == 'date' ? 'time' : 'name'));
-				
-				# Show photo thumbnails if required
-				if ($this->settings['photoDirectory']) {
-					$regexp = '^' . $this->settings['photoDirectory'];
-					if (preg_match ('/' . addcslashes ($regexp, '/') . '/', $_SERVER['REQUEST_URI'])) {
-						require_once ('image.php');
-						echo image::gallery (true, false, $size = 180);
-					}
-				}
-		}
-		
-		# Finish the page
-		echo $this->settings['footer'];
-	}
-	
-	
-	# Assign the settings
-	function setup ($settings)
-	{
-		# Start an error array
-		$errors = array ();
+		# Specify available arguments as defaults or as NULL (to represent a required argument)
+		$defaults = array (
+			'name' =>	NULL,	// Title of the organsation
+			'header' => '',	// See below
+			'footer' => '',	// See below
+			'iconsDirectory' =>	'/images/fileicons/',	// Icons directory
+			'iconsServerPath' =>	$_SERVER['DOCUMENT_ROOT'] . '/images/fileicons/',	// Icons path on the server
+			'trailingSlashVisible' =>	false,	// Whether folders should have a trailing slash visible
+			'fileExtensionsVisible' =>	true,	// Whether file extensions should be visible
+			'wildcardMatchesZeroCharacters' =>	true,	// Whether a wildcard match should match zero characters (0) or not (1 or more)
+			'caseSensitiveMatching' =>	false,	// Whether file matching should ignore case-sensitivity
+			'goToCreatedDirectoryAutomatically' =>	false,	// Whether creation of a new directory should result in a link to it or take the user directly there; requires output_buffering switched on in php.ini (or equivalent)
+			'uploadWidgets' =>	4,	// Number of upload boxes to appear on the page
+			'enableVersionControl' =>	true,	// Whether to enable version control for replacing existing files
+			'showFullUrlInSuccesses' => false,	// Whether to show the full URL in the list of successes
+			'emailAddressRequired' =>	true,	// Whether an e-mail address is required
+			'temporaryLocation' =>	'/temporary/',	// Temporary location for unspecified file saving, make sure this exists and is writable by the webserver 'user'!
+			'bannedDirectories' =>	array ('/temporary/'),	// Case insensitive directories where users cannot make changes, does NOT include subdirectories
+			'emailSubject' =>	'Addition to the {name} filespace',	// E-mail subject line: either text or false
+			'emailSubjectDisallow' =>	false,	// Disallowed subject line
+			'logFile' =>	'./filespacelog.csv',	// The CSV log file (actual disk location) where changes are logged, ensure this exists and is writable by the webserver 'user'
+			'hiddenFiles' =>	array ('.ht*', '.title.txt', '/favicon.ico', '/robots.txt', '/temporary/', '/changelog.csv',),	// Hidden files, starting with / indicates an absolute path and * at the start/end (but not middle) is a wildcard match, trailing slashes optional
+			'administratorContactPage' =>	NULL,	// The site's administrator contact page
+			'administratorEmail' =>	$_SERVER['SERVER_ADMIN'],	// Webmaster's e-mail
+			'administratorDescription' =>	'{name} filespace monitor',	// Administrator's description
+			'ownerEmail' =>	$_SERVER['SERVER_ADMIN'],	// Owner's e-mail
+			'ownerDescription' =>	'{name} filespace owner',	// Owner's description
+			'ownerDescriptionBrief' =>	'the {name} filespace owner',	// Owner's description in brief
+			'groupEmail' =>	$_SERVER['SERVER_ADMIN'],	// Group's e-mail
+			'groupDescription' =>	'{name} committee',	// Group's description
+			'groupDescriptionBrief' =>	'the {name} committee',	// Group's description in brief
+			'frontPageText' =>	'',	// Optional text on the front page
+			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
+			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
+			'showOnly' => array (),	// Only these directories should be shown
+			'unzip' => true,	// Whether to unzip zip files on arrival
+			'external' => 'external',	// Username of external user
+		);
 		
 		# Define the default template
-		$header = '
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+		$defaults['header'] = '
+<!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>{organisationTitle} filespace</title>
-	<style type="text/css" media="screen">
+	<title>{name} filespace</title>
+	<style>
 		/* Layout */
 		body {text-align: center; min-width: 760px;}
 		#container {width: 760px; margin-left: auto; margin-right: auto; text-align: left;}
@@ -113,7 +59,7 @@ class filespace
 		#footer {clear: both; border-top: 1px solid #ddd; margin-top: 30px;}
 		/* Body */
 		body, input, textarea {font-family: verdana, arial, helvetica, sans-serif;}
-		/* Font sizes - uses technique at http://www.thenoodleincident.com/tutorials/typography/ */
+		/* Font sizes - uses technique at https://www.thenoodleincident.com/tutorials/typography/ */
 		body {font-size: 69%;}
 		input, textarea {font-size: 1em;}
 		/* Links */
@@ -150,8 +96,10 @@ class filespace
 		div.gallery div.image img {border: 1px solid #333; margin: 30px 10px 5px 0;}
 		div.gallery div.image p {margin-top: 0; margin-bottom: 0;}
 	</style>
-	<script language="javascript" type="text/javascript">
-		function setFocus() {
+	
+	<script>
+		// Set focus
+		document.addEventListener (\'DOMContentLoaded\', function() {
 			if (document.forms.length > 0) {
 				var field = document.forms[0];
 				for (i = 0; i < field.length; i++) {
@@ -161,16 +109,16 @@ class filespace
 					}
 				}
 			}
-		}
+		});
 	</script>
 </head>
-<body onload="setFocus()">
+<body>
 
 <div id="container">
 	<div id="content">
 	';
 	
-	$footer = '
+	$defaults['footer'] = '
 		<div id="footer">
 			<p class="comment">For any technical problems found, please <a href="{administratorContactPage}" target="_blank" title="(Opens in a new window)">contact the webmaster</a>.</p>
 		</div>
@@ -179,49 +127,92 @@ class filespace
 </html>
 		';
 		
-		# Assign the defaults
-		$defaults = array (
-			'header' => $header,
-			'footer' => $footer,
-			'iconsDirectory' =>	'/images/fileicons/',	// Icons directory
-			'iconsServerPath' =>	$_SERVER['DOCUMENT_ROOT'] . '/images/fileicons/',	// Icons path on the server
-			'trailingSlashVisible' =>	false,	// Whether folders should have a trailing slash visible
-			'fileExtensionsVisible' =>	true,	// Whether file extensions should be visible
-			'wildcardMatchesZeroCharacters' =>	true,	// Whether a wildcard match should match zero characters (0) or not (1 or more)
-			'caseSensitiveMatching' =>	false,	// Whether file matching should ignore case-sensitivity
-			'goToCreatedDirectoryAutomatically' =>	false,	// Whether creation of a new directory should result in a link to it or take the user directly there; requires output_buffering switched on in php.ini (or equivalent)
-			'uploadWidgets' =>	4,	// Number of upload boxes to appear on the page
-			'enableVersionControl' =>	true,	// Whether to enable version control for replacing existing files
-			'showFullUrlInSuccesses' => false,	// Whether to show the full URL in the list of successes
-			'emailAddressRequired' =>	true,	// Whether an e-mail address is required
-			'temporaryLocation' =>	'/temporary/',	// Temporary location for unspecified file saving, make sure this exists and is writable by the webserver 'user'!
-			'bannedDirectories' =>	array ('/temporary/'),	// Case insensitive directories where users cannot make changes, does NOT include subdirectories
-			'emailSubject' =>	'Addition to the filespace',	// E-mail subject line: either text or false
-			'emailSubjectDisallow' =>	false,	// Disallowed subject line
-			'logFile' =>	'./filespacelog.csv',	// The CSV log file (actual disk location) where changes are logged, ensure this exists and is writable by the webserver 'user'
-			'hiddenFiles' =>	array ('.ht*', '.title.txt', '/favicon.ico', '/robots.txt', '/temporary/', '/changelog.csv',),	// Hidden files, starting with / indicates an absolute path and * at the start/end (but not middle) is a wildcard match, trailing slashes optional
-			'organisationTitle' =>	NULL,	// Title of the organsation
-			'administratorContactPage' =>	NULL,	// The site's administrator contact page
-			'administratorEmail' =>	NULL,	// Webmaster's e-mail
-			'administratorDescription' =>	'Filespace monitor',	// Administrator's description
-			'ownerEmail' =>	NULL,	// Owner's e-mail
-			'ownerDescription' =>	'Filespace owner',	// Owner's description
-			'ownerDescriptionBrief' =>	'the filespace owner',	// Owner's description in brief
-			'groupEmail' =>	NULL,	// Group's e-mail
-			'groupDescription' =>	'Committee',	// Group's description
-			'groupDescriptionBrief' =>	'the committee',	// Group's description in brief
-			'prependedFile' =>	NULL,	// Start of house style
-			'appendedFile' =>	NULL,	// End of house style
-			'frontPageText' =>	'',	// Optional text on the front page
-			'photoDirectory' =>	false,	// Directory (and subdirectories underneath) where thumbnails should be added if any images are present, or false to disable
-			'photoModeOnly' => false,	// In photo mode, only the thumbnails are shown rather than any file listing
-			'showOnly' => array (),	// Only these directories should be shown
-			'unzip' => true,	// Whether to unzip zip files on arrival
-			'external' => 'external',	// Username of external user
-		);
+		# Return the defaults
+		return $defaults;
+	}
+	
+	
+	# Constructor
+	function __construct ($settings)
+	{
+		# Assign the settings and run the main program if there are no errors
+		if (!$this->setup ($settings)) {return false;}
+		
+		# External users cannot access the hierarchy section
+		$this->userIsExternal = ($_SERVER['REMOTE_USER'] == $this->settings['external']);
+		if ($this->userIsExternal) {
+			if ($_SERVER['QUERY_STRING'] == 'hierarchy') {
+				$_SERVER['QUERY_STRING'] = false;
+			}
+		}
+		
+		# Start the page
+		echo $this->settings['header'];
+		echo "\n\t\t" . '<div id="header">
+			<ul class="functions">
+				<li><a href="?add">+ Add <strong>new item</strong> here</a></li>
+				<li><a href="?directory">&radic; Add new folder here</a></li>
+				' . ($_SERVER['QUERY_STRING'] == 'date' ? '<li><a href="./">N Change to: list by name</a></li>' : '<li><a href="?date">D Change to: list by date</a></li>') . '
+				' . ($this->userIsExternal ? '' : '<li><a href="?hierarchy">&#9560; Sitemap</a></li>') . '
+				' . (in_array ($_SERVER['QUERY_STRING'], array ('add', 'directory')) ? '<li><a href="./">&laquo; Return to listing</a></li>' : '') . '
+			</ul>
+			<h1><a href="/">' . $this->settings['name'] . ' filespace</a></h1>
+		</div>';
+		echo "\n\n\t\t" . '<p class="navigation">You are in: ' . directories::trail ()  . '</p>';
+		
+		# Determine the current location
+		$this->location = str_replace ('?' . $_SERVER['QUERY_STRING'], '', urldecode ($_SERVER['REQUEST_URI']));
+		
+		# Add a welcome message on the front page
+		if ($this->location == '/') {
+			echo "\n\n\t\t" . '<p><strong>Welcome to the ' . $this->settings['name'] . ' filespace.</strong> <em>Please bookmark this page!</em><br />Files/folders can be added using the links above.</p>';
+			echo $this->settings['frontPageText'];
+		}
+		
+		# Take action based on the query string
+		switch ($_SERVER['QUERY_STRING']) {
+			
+			# If the query string is set to 'add', load the upload form library and create a form
+			case 'add':
+				$this->uploadForm ();
+				break;
+				
+			# If the query string is set to 'directory', load the directory creation form library and create a form
+			case 'directory':
+				$this->createDirectory ($this->settings['bannedDirectories'], $this->settings['goToCreatedDirectoryAutomatically']);
+				break;
+				
+			# Folder hierarchy
+			case 'hierarchy':
+				echo $this->sitemap ();
+				break;
+				
+			# If no action is specified, by default show the directory listing
+			default:
+				echo directories::listing ($this->settings['iconsDirectory'], $this->settings['iconsServerPath'], ($this->settings['photoModeOnly'] ? array_merge ($this->settings['hiddenFiles'], array ('*.jpg', '*.gif', '*.png')) : $this->settings['hiddenFiles']), $this->settings['caseSensitiveMatching'], $this->settings['trailingSlashVisible'], $this->settings['fileExtensionsVisible'], $this->settings['wildcardMatchesZeroCharacters'], $this->settings['showOnly'], ($_SERVER['QUERY_STRING'] == 'date' ? 'time' : 'name'));
+				
+				# Show photo thumbnails if required
+				if ($this->settings['photoDirectory']) {
+					$regexp = '^' . $this->settings['photoDirectory'];
+					if (preg_match ('/' . addcslashes ($regexp, '/') . '/', $_SERVER['REQUEST_URI'])) {
+						echo image::gallery (true, false, $size = 180);
+					}
+				}
+		}
+		
+		# Finish the page
+		echo $this->settings['footer'];
+	}
+	
+	
+	# Assign the settings
+	function setup ($settings)
+	{
+		# Start an error array
+		$errors = array ();
 		
 		# Apply the supplied argument or, if none, the default
-		foreach ($defaults as $key => $default) {
+		foreach ($this->defaults () as $key => $default) {
 			
 			# Throw an error if a value is null
 			if ((is_null ($default)) && (!isSet ($settings[$key]))) {
@@ -233,8 +224,10 @@ class filespace
 			}
 		}
 		
-		# Apply string replacement to the header and footer
-		$this->settings['header'] = str_replace ('{organisationTitle}', $this->settings['organisationTitle'], $this->settings['header']);
+		# Apply string placeholder replacement in the settings
+		foreach ($this->settings as $key => $value) {
+			$this->settings[$key] = str_replace ('{name}', $this->settings['name'], $this->settings[$key]);
+		}
 		$this->settings['footer'] = str_replace ('{administratorContactPage}', $this->settings['administratorContactPage'], $this->settings['footer']);
 		
 		# Show any setup errors
@@ -487,13 +480,8 @@ class filespace
 	# Function to show the folder hierarchy
 	function sitemap ()
 	{
-		# Start the HTML
-		$html  = '';
-		
 		# Load and instantiate the sitemap class
-		require_once ('sitemap.php');
-		$sitemap = new sitemap ();
-		echo $sitemap->main ($this->settings['bannedDirectories'], $titleFile = false, '/', true, '<h2>Sitemap</h2>');
+		$html = directories::sitemap ($this->settings['bannedDirectories'], $titleFile = false, '/', true, '<h2>Sitemap</h2>');
 		
 		# Return the HTML
 		return $html;

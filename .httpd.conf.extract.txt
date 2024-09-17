@@ -1,0 +1,46 @@
+# Filespace Apache directives
+
+# Load using:
+#	# Filespace system
+#	Include /path/to/flespace/.httpd.conf.extract.txt
+#	Use MacroFilespace www.example.com /path/to/configuration/
+
+
+<Macro MacroFilespace $hostname $configurationDirectory>
+	
+	# Enable access control; no need therefore for a robots.txt file
+	<Location />
+		AuthType Basic
+		AuthName "Private area"
+		AuthUserFile $configurationDirectory/$hostname-htpasswd.txt
+		Require valid-user
+	</Location>
+	
+	# Run requests through boostrap file
+	Alias /sitetech/filespace.html $configurationDirectory/$hostname.html
+	DirectoryIndex /sitetech/filespace.html
+	
+	# Enable changelog access
+	Alias /changelog.csv $configurationDirectory/logs/$hostname-changelog.csv
+	
+	# Allow PHP
+	<Location /sitetech/>
+		AddType application/x-httpd-php .php .html
+	</Location>
+	
+	# Enable file uploads
+	<Location /sitetech/>
+		php_admin_value file_uploads 1
+		php_value max_execution_time 1200
+		php_value upload_max_filesize 500M
+		php_value post_max_size 500M
+		php_value memory_limit 500M
+	</Location>
+	
+	# Force external users only to be able to access /external
+	RewriteEngine On
+	RewriteCond %{LA-U:REMOTE_USER} ^external$
+	RewriteCond %{REQUEST_URI} !^/external
+	RewriteCond %{REQUEST_URI} !^/images/fileicons
+	RewriteRule .* http://$hostname/external/ [R]
+</Macro>
