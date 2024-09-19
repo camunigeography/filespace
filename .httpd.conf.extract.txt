@@ -37,6 +37,11 @@
 		php_value memory_limit 500M
 	</Location>
 	
+	# Force native browser files to be downloaded rather than viewed
+	<FilesMatch "\.(xml|txt|cpg)$">
+		Header Set Content-Disposition attachment
+	</FilesMatch>
+	
 	# Force external users only to be able to access /external
 	RewriteEngine On
 	RewriteCond %{LA-U:REMOTE_USER} ^external$
